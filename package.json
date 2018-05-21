@@ -1,0 +1,15 @@
+{
+  "name": "tetris",
+  "version": "1.0.0",
+  "description": "A tetris game.",
+  "author": "H",
+  "devDependencies": {
+    "@types/pixi.js": "^4.7.3",
+    "gulp-typescript": "^4.0.2",
+    "gulp4": "^4.0.2",
+    "typescript": "^2.8.3"
+  },
+  "dependencies": {
+    "pixi.js": "^4.7.3"
+  }
+}

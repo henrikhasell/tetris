@@ -1,0 +1,4 @@
+/wwwroot/**/*.js
+/wwwroot/**/*.js.map
+/node_modules
+/package-lock.json
