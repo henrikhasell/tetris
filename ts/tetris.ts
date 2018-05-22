@@ -86,8 +86,11 @@ namespace Tetris {
             }
         }
 
-        public rotate():void {
-            switch(this.container.rotation) {
+        public rotate(grid:PIXI.Sprite[][]):void {
+            
+            const rotation:number = this.container.rotation;
+
+            switch(rotation) {
                 case 0:
                     this.container.rotation = Math.PI * 0.5;
                     break;
@@ -102,6 +105,10 @@ namespace Tetris {
                     break;
                 default:
                     console.warn('Cannot rotate shape: Invalid rotation.');
+            }
+
+            if(this.collide(squares)) {
+                this.container.rotation = rotation;
             }
         }
 
@@ -212,7 +219,7 @@ window.onkeydown = (event:KeyboardEvent) => {
             shape.moveRight(squares);
             break;
         case 'r':
-            shape.rotate();
+            shape.rotate(squares);
             break;
     }
 };
