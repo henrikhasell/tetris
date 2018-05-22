@@ -81,9 +81,27 @@ namespace Tetris {
             this.container.position.y += tileH;
             if(this.collide(grid)) {
                 this.container.position.y -= tileH;
+                console.debug('Rows: ' + this.getRows());
                 this.solidify(grid);
                 this.initialise();
             }
+        }
+
+        public getRows():number[] {
+            let positions:number[] = [];
+            let unique:number[] = [];
+
+            for(let child of <PIXI.Sprite[]>this.container.children) {
+                positions.push(this.transform(<PIXI.Point>child.position).y);
+            }
+
+            for(let position of positions) {
+                if(unique.indexOf(position) == -1) {
+                    unique.push(position);
+                }
+            }
+
+            return unique;
         }
 
         public rotate(grid:PIXI.Sprite[][]):void {
@@ -198,6 +216,7 @@ let shapeTexture:PIXI.Texture;
 let squareTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
 let shape:Tetris.Shape;
+let interval:number;
 
 PIXI.loader
     .add([
@@ -208,6 +227,75 @@ PIXI.loader
 
 function timeStep():void {
     shape.step(squares);
+}
+
+function shift(grid:PIXI.Sprite[][], count:number):void {
+    // Move references to 
+    for(let y:number = 1; y <= screenH - count; y++) {
+        for(let x:number = 0; x < screenW; x++) {
+            grid[x][screenH - y] = grid[x][screenH - (y + count)];
+            grid[x][screenH - y].position.y += count * tileH;
+        }
+    }
+
+    for(let y:number = 0; y < count; y++) {
+        for(let x:number = 0; x < screenW; x++) {
+            grid[x][y] = new PIXI.Sprite(squareTexture);
+            grid[x][y].position.x = x * tileW;
+            grid[x][y].position.y = y * tileH;
+            application.stage.addChild(grid[x][y]);
+        }
+    }
+}
+
+function rowCheck(grid:PIXI.Sprite[][], rows?:number[]):void {
+    let completedRows:number = 0;
+    for(let y:number = screenH - 1; y >= 0; y--) {
+        let rowCompleted:boolean = true;
+        for(let x:number = 0; x < screenW; x++) {
+            if(grid[x][y].texture != shapeTexture) {
+                rowCompleted = false;
+                break;
+            }
+        }
+        if(rowCompleted) {
+            completedRows++;
+        }
+        else {
+            break;
+        }
+    }
+    if(completedRows) { // Debug
+        console.debug('Number of completed rows: ' + completedRows);
+    }
+    // TODO: Remove sprites from stage,
+    // add them to a container,
+    // make that container blink,
+    // while moving above tiles down onto the container.
+    // Need to implement ordering for this,
+    // and tweening,
+    // and method for moving sprites around the grid object.
+    if(completedRows) {
+        clearInterval(interval);
+        let blink:PIXI.Container = new PIXI.Container();
+        for(let y:number = 1; y <= completedRows; y++) {
+            for(let x:number = 0; x < screenW; x++) {
+                const sprite:PIXI.Sprite = grid[x][screenH - y];
+                application.stage.removeChild(sprite);
+                blink.addChild(sprite);
+            }
+        }
+        application.stage.addChild(blink);
+        let count:number = 0, blinkInterval:number = setInterval(() => {
+            blink.visible = !blink.visible;
+            if(blink.visible && ++count == 5) {
+                application.stage.removeChild(blink);
+                clearInterval(blinkInterval);
+                shift(grid, completedRows);
+                interval = window.setInterval(timeStep, 200);
+            }
+        }, 50);
+    }
 }
 
 window.onkeydown = (event:KeyboardEvent) => {
@@ -238,7 +326,7 @@ function setup():void {
     }
     shape = new Tetris.Shape();
 
-    window.setInterval(timeStep, 200);
+    interval = window.setInterval(timeStep, 200);
 }
 
 document.body.appendChild(application.view);
