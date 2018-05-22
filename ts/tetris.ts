@@ -71,6 +71,9 @@ namespace Tetris {
 
         public initialise():void {
             this.offsets = this.createOffsets();
+            if(this.container) {
+                application.stage.removeChild(this.container);
+            }
             this.container = this.createContainer(this.offsets);
             this.container.position.x = tileW * 3.5;
             this.container.position.y = -tileH * 2.5;
@@ -81,19 +84,22 @@ namespace Tetris {
             this.container.position.y += tileH;
             if(this.collide(grid)) {
                 this.container.position.y -= tileH;
-                console.debug('Rows: ' + this.getRows());
                 this.solidify(grid);
+                let rows:number[] = this.getRows();
                 this.initialise();
+                checkRows(grid, rows);
             }
         }
 
         public getRows():number[] {
+
             let positions:number[] = [];
-            let unique:number[] = [];
 
             for(let child of <PIXI.Sprite[]>this.container.children) {
                 positions.push(this.transform(<PIXI.Point>child.position).y);
             }
+
+            let unique:number[] = [];
 
             for(let position of positions) {
                 if(unique.indexOf(position) == -1) {
@@ -108,22 +114,7 @@ namespace Tetris {
             
             const rotation:number = this.container.rotation;
 
-            switch(rotation) {
-                case 0:
-                    this.container.rotation = Math.PI * 0.5;
-                    break;
-                case Math.PI:
-                    this.container.rotation = Math.PI * 1.5;
-                    break;
-                case Math.PI * 0.5:
-                    this.container.rotation = Math.PI;
-                    break;
-                case Math.PI * 1.5:
-                    this.container.rotation = 0;
-                    break;
-                default:
-                    console.warn('Cannot rotate shape: Invalid rotation.');
-            }
+            this.container.rotation += Math.PI/2;
 
             if(this.collide(squares)) {
                 this.container.rotation = rotation;
@@ -171,7 +162,6 @@ namespace Tetris {
                 }
                 application.stage.removeChild(child);
             }
-            this.container.removeChildren();
         }
 
         protected move(grid:PIXI.Sprite[][], position:PIXI.Point):void {
@@ -229,45 +219,42 @@ function timeStep():void {
     shape.step(squares);
 }
 
-function shift(grid:PIXI.Sprite[][], count:number):void {
-    // Move references to 
-    for(let y:number = 1; y <= screenH - count; y++) {
-        for(let x:number = 0; x < screenW; x++) {
-            grid[x][screenH - y] = grid[x][screenH - (y + count)];
-            grid[x][screenH - y].position.y += count * tileH;
+function shift(grid:PIXI.Sprite[][], rows:number[]):void {
+    rows = rows.sort();
+    for(let row of rows) {
+        for(let y:number = row; y > 0; y--) {
+            for(let x:number = 0; x < screenW; x++) {
+                grid[x][y] = grid[x][y - 1];
+                grid[x][y].position.y += tileH;
+            }
         }
-    }
-
-    for(let y:number = 0; y < count; y++) {
         for(let x:number = 0; x < screenW; x++) {
-            grid[x][y] = new PIXI.Sprite(squareTexture);
-            grid[x][y].position.x = x * tileW;
-            grid[x][y].position.y = y * tileH;
-            application.stage.addChild(grid[x][y]);
+            grid[x][0] = new PIXI.Sprite(squareTexture);
+            grid[x][0].position.x = x * tileW;
+            grid[x][0].position.y = y * tileH;
+            application.stage.addChild(grid[x][0]);
         }
     }
 }
 
-function rowCheck(grid:PIXI.Sprite[][], rows?:number[]):void {
-    let completedRows:number = 0;
-    for(let y:number = screenH - 1; y >= 0; y--) {
-        let rowCompleted:boolean = true;
+function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
+    let completedRows:number[] = [];
+    for(let row of rows) {
+        let complete:boolean = true;
         for(let x:number = 0; x < screenW; x++) {
-            if(grid[x][y].texture != shapeTexture) {
-                rowCompleted = false;
+            if(grid[x][row].texture != shapeTexture) {
+                complete = false;
                 break;
             }
         }
-        if(rowCompleted) {
-            completedRows++;
-        }
-        else {
-            break;
+        if(complete) {
+            completedRows.push(row);
         }
     }
-    if(completedRows) { // Debug
-        console.debug('Number of completed rows: ' + completedRows);
-    }
+    completedRows = completedRows.sort((a:number, b:number) => {
+        return a > b ? a : b;
+    });
+    
     // TODO: Remove sprites from stage,
     // add them to a container,
     // make that container blink,
@@ -275,12 +262,12 @@ function rowCheck(grid:PIXI.Sprite[][], rows?:number[]):void {
     // Need to implement ordering for this,
     // and tweening,
     // and method for moving sprites around the grid object.
-    if(completedRows) {
+    if(completedRows.length) {
         clearInterval(interval);
         let blink:PIXI.Container = new PIXI.Container();
-        for(let y:number = 1; y <= completedRows; y++) {
+        for(let row of completedRows) {
             for(let x:number = 0; x < screenW; x++) {
-                const sprite:PIXI.Sprite = grid[x][screenH - y];
+                const sprite:PIXI.Sprite = grid[x][row];
                 application.stage.removeChild(sprite);
                 blink.addChild(sprite);
             }
@@ -288,10 +275,10 @@ function rowCheck(grid:PIXI.Sprite[][], rows?:number[]):void {
         application.stage.addChild(blink);
         let count:number = 0, blinkInterval:number = setInterval(() => {
             blink.visible = !blink.visible;
-            if(blink.visible && ++count == 5) {
+            if(!blink.visible && ++count == 5) {
                 application.stage.removeChild(blink);
-                clearInterval(blinkInterval);
                 shift(grid, completedRows);
+                clearInterval(blinkInterval);
                 interval = window.setInterval(timeStep, 200);
             }
         }, 50);
