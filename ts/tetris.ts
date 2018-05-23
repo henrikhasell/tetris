@@ -7,77 +7,85 @@ namespace Tetris {
         Red, Green, Blue, Yellow, Magenta, Cyan, Orange
     }
     export interface Shape {
-        offsets:PIXI.Point[];
+        points:PIXI.Point[];
         colour:Colour;
+        offset?:PIXI.Point;
     }
     export class Debris {
         protected static SHAPES:Shape[] = [
             {
-                offsets: [
-                    new PIXI.Point(-2, 0),
-                    new PIXI.Point(-1, 0),
+                points: [
                     new PIXI.Point(0, 0),
-                    new PIXI.Point(1, 0)
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(2, 0),
+                    new PIXI.Point(3, 0)
                 ],
+                offset: new PIXI.Point(2, 0),
                 colour: Colour.Red
             },
             {
-                offsets: [
-                    new PIXI.Point(-1, -1),
-                    new PIXI.Point(0, -1),
-                    new PIXI.Point(1, -1),
-                    new PIXI.Point(1, 0)
+                points: [
+                    new PIXI.Point(0, 0),
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(2, 0),
+                    new PIXI.Point(2, 1)
                 ],
+                offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Blue
             },
             {
-                offsets: [
+                points: [
                     new PIXI.Point(0, 0),
                     new PIXI.Point(1, 0),
                     new PIXI.Point(2, 0),
                     new PIXI.Point(0, 1)
                 ],
+                offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Orange
             },
             {
-                offsets: [
+                points: [
                     new PIXI.Point(0, 0),
                     new PIXI.Point(1, 0),
                     new PIXI.Point(0, 1),
                     new PIXI.Point(1, 1)
                 ],
+                offset: new PIXI.Point(1, 1),
                 colour: Colour.Yellow
             },
             {
-                offsets: [
+                points: [
                     new PIXI.Point(1, 0),
                     new PIXI.Point(2, 0),
                     new PIXI.Point(0, 1),
                     new PIXI.Point(1, 1)
                 ],
+                offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Magenta
             },
             {
-                offsets: [
+                points: [
                     new PIXI.Point(0, 0),
                     new PIXI.Point(1, 0),
                     new PIXI.Point(2, 0),
                     new PIXI.Point(1, 1)
                 ],
+                offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Cyan
             },
             {
-                offsets: [
+                points: [
                     new PIXI.Point(0, 0),
                     new PIXI.Point(1, 0),
                     new PIXI.Point(1, 1),
                     new PIXI.Point(2, 1)
                 ],
+                offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Green
             }
         ];
 
-        protected offsets:PIXI.Point[];
+        protected shape:Tetris.Shape;
         protected container:PIXI.Container;
         
         public constructor() {
@@ -88,11 +96,11 @@ namespace Tetris {
             return Debris.SHAPES[Math.floor(Math.random() * Debris.SHAPES.length)];
         }
 
-        protected createContainer(offsets:PIXI.Point[], colour:Tetris.Colour):PIXI.Container {
+        protected createContainer(shape:Tetris.Shape):PIXI.Container {
             let container:PIXI.Container = new PIXI.Container();
-            for(let offset of offsets) {
+            for(let point of shape.points) {
                 let texture:PIXI.Texture;
-                switch(colour) {
+                switch(shape.colour) {
                     case Tetris.Colour.Red: texture = redTexture; break;
                     case Tetris.Colour.Green: texture = greenTexture; break;
                     case Tetris.Colour.Blue: texture = blueTexture; break;
@@ -102,8 +110,8 @@ namespace Tetris {
                     case Tetris.Colour.Cyan: texture = cyanTexture; break;
                 }
                 let sprite:PIXI.Sprite = new PIXI.Sprite(texture);
-                sprite.position.x = offset.x * tileW;
-                sprite.position.y = offset.y * tileH;
+                sprite.position.x = (point.x + 0.5) * tileW;
+                sprite.position.y = (point.y + 0.5) * tileH;
                 sprite.anchor.x = 0.5;
                 sprite.anchor.y = 0.5;
                 container.addChild(sprite);
@@ -112,14 +120,13 @@ namespace Tetris {
         }
 
         public initialise():void {
-            const shape:Tetris.Shape = this.getRandomShape();
-            this.offsets = shape.offsets;
+            this.shape = this.getRandomShape();
             if(this.container) {
                 application.stage.removeChild(this.container);
             }
-            this.container = this.createContainer(this.offsets, shape.colour);
-            this.container.position.x = tileW * 3.5;
-            this.container.position.y = -tileH * 2.5;
+            this.container = this.createContainer(this.shape);
+            this.container.position.x = tileW * 4;
+            this.container.position.y = -tileH * 3;
             application.stage.addChild(this.container);            
         }
 
@@ -166,16 +173,25 @@ namespace Tetris {
 
         protected transform(position:PIXI.Point):PIXI.Point {
 
+
             const cos_val:number = Math.cos(this.container.rotation);
             const sin_val:number = Math.sin(this.container.rotation);
 
             // There is probablly a more efficient algorithm for this operation?
 
+            const p:PIXI.Point = new PIXI.Point(
+                position.x,// - this.shape.offset.x * tileW,
+                position.y// - this.shape.offset.x * tileH
+            );
+
             const vertex:PIXI.Point = new PIXI.Point(
-                Math.floor(Math.floor(this.container.position.x + (cos_val * position.x - sin_val * position.y)) / tileW),
-                Math.floor(Math.floor(this.container.position.y + (sin_val * position.x + cos_val * position.y)) / tileH)
+                Math.floor(Math.floor(this.container.position.x + (cos_val * p.x - sin_val * p.y)) / tileW),
+                Math.floor(Math.floor(this.container.position.y + (sin_val * p.x + cos_val * p.y)) / tileH)
             );
             
+            //vertex.x += this.shape.offset.x;
+            //vertex.y += this.shape.offset.y;
+
             return vertex;
         }
         protected collide(grid:PIXI.Sprite[][]):boolean {
