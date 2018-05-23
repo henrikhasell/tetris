@@ -1,48 +1,80 @@
 namespace Tetris {
-    export class Shape {
-        protected static OFFSETS:PIXI.Point[][] = [
-            [
-                new PIXI.Point(-2, 0),
-                new PIXI.Point(-1, 0),
-                new PIXI.Point(0, 0),
-                new PIXI.Point(1, 0),
-            ],
-            [
-                new PIXI.Point(-1, -1),
-                new PIXI.Point(0, -1),
-                new PIXI.Point(1, -1),
-                new PIXI.Point(1, 0)
-            ],
-            [
-                new PIXI.Point(0, 0),
-                new PIXI.Point(1, 0),
-                new PIXI.Point(2, 0),
-                new PIXI.Point(0, 1)
-            ],
-            [
-                new PIXI.Point(0, 0),
-                new PIXI.Point(1, 0),
-                new PIXI.Point(0, 1),
-                new PIXI.Point(1, 1)
-            ],
-            [
-                new PIXI.Point(1, 0),
-                new PIXI.Point(2, 0),
-                new PIXI.Point(0, 1),
-                new PIXI.Point(1, 1)
-            ],
-            [
-                new PIXI.Point(0, 0),
-                new PIXI.Point(1, 0),
-                new PIXI.Point(2, 0),
-                new PIXI.Point(1, 1)
-            ],
-            [
-                new PIXI.Point(0, 0),
-                new PIXI.Point(1, 0),
-                new PIXI.Point(1, 1),
-                new PIXI.Point(1, 2)
-            ],
+    export const enum State {
+        Move,
+        Blink
+    }
+    export const enum Colour {
+        Red, Green, Blue, Yellow, Magenta, Cyan, Orange
+    }
+    export interface Shape {
+        offsets:PIXI.Point[];
+        colour:Colour;
+    }
+    export class Debris {
+        protected static SHAPES:Shape[] = [
+            {
+                offsets: [
+                    new PIXI.Point(-2, 0),
+                    new PIXI.Point(-1, 0),
+                    new PIXI.Point(0, 0),
+                    new PIXI.Point(1, 0)
+                ],
+                colour: Colour.Red
+            },
+            {
+                offsets: [
+                    new PIXI.Point(-1, -1),
+                    new PIXI.Point(0, -1),
+                    new PIXI.Point(1, -1),
+                    new PIXI.Point(1, 0)
+                ],
+                colour: Colour.Blue
+            },
+            {
+                offsets: [
+                    new PIXI.Point(0, 0),
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(2, 0),
+                    new PIXI.Point(0, 1)
+                ],
+                colour: Colour.Orange
+            },
+            {
+                offsets: [
+                    new PIXI.Point(0, 0),
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(0, 1),
+                    new PIXI.Point(1, 1)
+                ],
+                colour: Colour.Yellow
+            },
+            {
+                offsets: [
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(2, 0),
+                    new PIXI.Point(0, 1),
+                    new PIXI.Point(1, 1)
+                ],
+                colour: Colour.Magenta
+            },
+            {
+                offsets: [
+                    new PIXI.Point(0, 0),
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(2, 0),
+                    new PIXI.Point(1, 1)
+                ],
+                colour: Colour.Cyan
+            },
+            {
+                offsets: [
+                    new PIXI.Point(0, 0),
+                    new PIXI.Point(1, 0),
+                    new PIXI.Point(1, 1),
+                    new PIXI.Point(2, 1)
+                ],
+                colour: Colour.Green
+            }
         ];
 
         protected offsets:PIXI.Point[];
@@ -52,14 +84,24 @@ namespace Tetris {
             this.initialise();
         }
 
-        protected createOffsets():PIXI.Point[] {
-            return Shape.OFFSETS[Math.floor(Math.random() * Shape.OFFSETS.length)];
+        protected getRandomShape():Tetris.Shape {
+            return Debris.SHAPES[Math.floor(Math.random() * Debris.SHAPES.length)];
         }
 
-        protected createContainer(offsets:PIXI.Point[]):PIXI.Container {
+        protected createContainer(offsets:PIXI.Point[], colour:Tetris.Colour):PIXI.Container {
             let container:PIXI.Container = new PIXI.Container();
             for(let offset of offsets) {
-                let sprite:PIXI.Sprite = new PIXI.Sprite(shapeTexture);
+                let texture:PIXI.Texture;
+                switch(colour) {
+                    case Tetris.Colour.Red: texture = redTexture; break;
+                    case Tetris.Colour.Green: texture = greenTexture; break;
+                    case Tetris.Colour.Blue: texture = blueTexture; break;
+                    case Tetris.Colour.Orange: texture = orangeTexture; break;
+                    case Tetris.Colour.Yellow: texture = yellowTeture; break;
+                    case Tetris.Colour.Magenta: texture = magentaTexture; break;
+                    case Tetris.Colour.Cyan: texture = cyanTexture; break;
+                }
+                let sprite:PIXI.Sprite = new PIXI.Sprite(texture);
                 sprite.position.x = offset.x * tileW;
                 sprite.position.y = offset.y * tileH;
                 sprite.anchor.x = 0.5;
@@ -70,11 +112,12 @@ namespace Tetris {
         }
 
         public initialise():void {
-            this.offsets = this.createOffsets();
+            const shape:Tetris.Shape = this.getRandomShape();
+            this.offsets = shape.offsets;
             if(this.container) {
                 application.stage.removeChild(this.container);
             }
-            this.container = this.createContainer(this.offsets);
+            this.container = this.createContainer(this.offsets, shape.colour);
             this.container.position.x = tileW * 3.5;
             this.container.position.y = -tileH * 2.5;
             application.stage.addChild(this.container);            
@@ -160,7 +203,6 @@ namespace Tetris {
                 if(grid[position.x] && grid[position.x][position.y]) {
                     grid[position.x][position.y].texture = (<PIXI.Sprite>child).texture;
                 }
-                application.stage.removeChild(child);
             }
         }
 
@@ -202,21 +244,54 @@ const screenW:number = 12;
 const screenH:number = 20;
 
 let application:PIXI.Application = new PIXI.Application({width: tileW * screenW, height: tileH * screenH});
-let shapeTexture:PIXI.Texture;
+let squaresContainer:PIXI.Container = new PIXI.Container();
+let blinkContainer:PIXI.Container = new PIXI.Container();
+let redTexture:PIXI.Texture;
+let greenTexture:PIXI.Texture;
+let blueTexture:PIXI.Texture;
+let orangeTexture:PIXI.Texture;
+let yellowTeture:PIXI.Texture;
+let magentaTexture:PIXI.Texture;
+let cyanTexture:PIXI.Texture;
 let squareTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
-let shape:Tetris.Shape;
-let interval:number;
+let shape:Tetris.Debris;
+let state:Tetris.State = Tetris.State.Move;
+let stepCount:number = 0;
+let fast:boolean = false;
+let completedRows:number[];
 
 PIXI.loader
     .add([
-        "images/shape.bmp",
-        "images/square.bmp"
+        "images/red.bmp",
+        "images/green.bmp",
+        "images/blue.bmp",
+        "images/square.bmp",
+        "images/orange.bmp",
+        "images/cyan.bmp",
+        "images/magenta.bmp",
+        "images/yellow.bmp"
     ])
     .load(setup);
 
 function timeStep():void {
-    shape.step(squares);
+    switch(state) {
+        case Tetris.State.Move:
+            if(fast || stepCount++ % 8 == 0) {
+                shape.step(squares);
+                if(fast) {
+                    stepCount = 1;
+                }
+            }
+            break;
+        case Tetris.State.Blink:
+            blinkContainer.visible = !blinkContainer.visible;
+            if(blinkContainer.visible && ++stepCount == 5) {
+                blinkContainer.removeChildren();
+                shift(squares, completedRows);
+                state = Tetris.State.Move;
+            }
+    }
 }
 
 function shift(grid:PIXI.Sprite[][], rows:number[]):void {
@@ -226,23 +301,21 @@ function shift(grid:PIXI.Sprite[][], rows:number[]):void {
             for(let x:number = 0; x < screenW; x++) {
                 grid[x][y] = grid[x][y - 1];
                 grid[x][y].position.y += tileH;
+                
+                grid[x][0] = new PIXI.Sprite(squareTexture);
+                grid[x][0].position.x = x * tileW;
+                squaresContainer.addChild(grid[x][0]);
             }
-        }
-        for(let x:number = 0; x < screenW; x++) {
-            grid[x][0] = new PIXI.Sprite(squareTexture);
-            grid[x][0].position.x = x * tileW;
-            grid[x][0].position.y = y * tileH;
-            application.stage.addChild(grid[x][0]);
         }
     }
 }
 
 function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
-    let completedRows:number[] = [];
+    completedRows = [];
     for(let row of rows) {
         let complete:boolean = true;
         for(let x:number = 0; x < screenW; x++) {
-            if(grid[x][row].texture != shapeTexture) {
+            if(grid[x][row].texture == squareTexture) {
                 complete = false;
                 break;
             }
@@ -254,34 +327,17 @@ function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
     completedRows = completedRows.sort((a:number, b:number) => {
         return a > b ? a : b;
     });
-    
-    // TODO: Remove sprites from stage,
-    // add them to a container,
-    // make that container blink,
-    // while moving above tiles down onto the container.
-    // Need to implement ordering for this,
-    // and tweening,
-    // and method for moving sprites around the grid object.
+
     if(completedRows.length) {
-        clearInterval(interval);
-        let blink:PIXI.Container = new PIXI.Container();
         for(let row of completedRows) {
             for(let x:number = 0; x < screenW; x++) {
                 const sprite:PIXI.Sprite = grid[x][row];
-                application.stage.removeChild(sprite);
-                blink.addChild(sprite);
+                squaresContainer.removeChild(sprite);
+                blinkContainer.addChild(sprite);
             }
         }
-        application.stage.addChild(blink);
-        let count:number = 0, blinkInterval:number = setInterval(() => {
-            blink.visible = !blink.visible;
-            if(!blink.visible && ++count == 5) {
-                application.stage.removeChild(blink);
-                shift(grid, completedRows);
-                clearInterval(blinkInterval);
-                interval = window.setInterval(timeStep, 200);
-            }
-        }, 50);
+        state = Tetris.State.Blink;
+        stepCount = 0;
     }
 }
 
@@ -293,27 +349,45 @@ window.onkeydown = (event:KeyboardEvent) => {
         case 'd':
             shape.moveRight(squares);
             break;
+        case 's':
+            fast = true;
+            break;
         case 'r':
             shape.rotate(squares);
             break;
     }
 };
 
+window.onkeyup = (event:KeyboardEvent) => {
+    switch(event.key) {
+        case 's':
+            fast = false;
+            break;
+    }
+};
+
 function setup():void {
-    shapeTexture = PIXI.loader.resources['images/shape.bmp'].texture;
+    redTexture = PIXI.loader.resources['images/red.bmp'].texture;
+    greenTexture = PIXI.loader.resources['images/green.bmp'].texture;
+    blueTexture = PIXI.loader.resources['images/blue.bmp'].texture;
     squareTexture = PIXI.loader.resources['images/square.bmp'].texture;
+    orangeTexture = PIXI.loader.resources['images/orange.bmp'].texture;
+    yellowTeture = PIXI.loader.resources['images/yellow.bmp'].texture;
+    cyanTexture = PIXI.loader.resources['images/cyan.bmp'].texture;
+    magentaTexture = PIXI.loader.resources['images/magenta.bmp'].texture;
     for(let x:number = 0; x < screenW; x++) {
         squares[x] = [];
         for(let y:number = 0; y < screenH; y++) {
             squares[x][y] = new PIXI.Sprite(squareTexture);
             squares[x][y].position.x = x * tileW;
             squares[x][y].position.y = y * tileH;
-            application.stage.addChild(squares[x][y]);  
+            squaresContainer.addChild(squares[x][y]);  
         }
     }
-    shape = new Tetris.Shape();
-
-    interval = window.setInterval(timeStep, 200);
+    application.stage.addChild(squaresContainer);
+    application.stage.addChild(blinkContainer);
+    shape = new Tetris.Debris();
+    window.setInterval(timeStep, 25);
 }
 
 document.body.appendChild(application.view);
