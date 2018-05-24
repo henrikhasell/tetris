@@ -65,10 +65,10 @@ namespace Tetris {
             },
             {
                 points: [
-                    new PIXI.Point(0, 0),
-                    new PIXI.Point(1, 0),
-                    new PIXI.Point(2, 0),
-                    new PIXI.Point(1, 1)
+                    new PIXI.Point(0, 1),
+                    new PIXI.Point(1, 1),
+                    new PIXI.Point(2, 1),
+                    new PIXI.Point(1, 0)
                 ],
                 offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Cyan
@@ -98,6 +98,8 @@ namespace Tetris {
 
         protected createContainer(shape:Tetris.Shape):PIXI.Container {
             let container:PIXI.Container = new PIXI.Container();
+            container.position.x = tileW * (Math.ceil(screenW / 2 - shape.offset.x) + shape.offset.x % 1);
+            container.position.y = -tileH * (4 + shape.offset.y % 1);
             for(let point of shape.points) {
                 let texture:PIXI.Texture;
                 switch(shape.colour) {
@@ -110,8 +112,8 @@ namespace Tetris {
                     case Tetris.Colour.Cyan: texture = cyanTexture; break;
                 }
                 let sprite:PIXI.Sprite = new PIXI.Sprite(texture);
-                sprite.position.x = (point.x + 0.5) * tileW;
-                sprite.position.y = (point.y + 0.5) * tileH;
+                sprite.position.x = (point.x - shape.offset.x + 0.5) * tileW;
+                sprite.position.y = (point.y - shape.offset.y + 0.5) * tileH;
                 sprite.anchor.x = 0.5;
                 sprite.anchor.y = 0.5;
                 container.addChild(sprite);
@@ -125,8 +127,6 @@ namespace Tetris {
                 application.stage.removeChild(this.container);
             }
             this.container = this.createContainer(this.shape);
-            this.container.position.x = tileW * 4;
-            this.container.position.y = -tileH * 3;
             application.stage.addChild(this.container);            
         }
 
