@@ -164,10 +164,15 @@ namespace Tetris {
             
             const rotation:number = this.container.rotation;
 
-            this.container.rotation += Math.PI/2;
+            this.container.rotation += Math.PI / 2;
 
             if(this.collide(squares)) {
                 this.container.rotation = rotation;
+            }
+            else {
+                for(let child of this.container.children) {
+                    child.rotation -= Math.PI / 2;
+                }
             }
         }
 
@@ -253,11 +258,11 @@ namespace Tetris {
     }
 }
 
-const tileW:number = 16;
-const tileH:number = 16;
+const tileW:number = 32;
+const tileH:number = 32;
 
-const screenW:number = 12;
-const screenH:number = 20;
+const screenW:number = 10;
+const screenH:number = 22;
 
 let application:PIXI.Application = new PIXI.Application({width: tileW * screenW, height: tileH * screenH});
 let squaresContainer:PIXI.Container = new PIXI.Container();
@@ -293,7 +298,7 @@ PIXI.loader
 function timeStep():void {
     switch(state) {
         case Tetris.State.Move:
-            if(fast || stepCount++ % 8 == 0) {
+            if(fast || stepCount++ % 16 == 0) {
                 shape.step(squares);
                 if(fast) {
                     stepCount = 1;
@@ -317,10 +322,7 @@ function shift(grid:PIXI.Sprite[][], rows:number[]):void {
             for(let x:number = 0; x < screenW; x++) {
                 grid[x][y] = grid[x][y - 1];
                 grid[x][y].position.y += tileH;
-                
-                grid[x][0] = new PIXI.Sprite(squareTexture);
-                grid[x][0].position.x = x * tileW;
-                squaresContainer.addChild(grid[x][0]);
+                squaresContainer.addChild(grid[x][0] = createCell(x, 0));
             }
         }
     }
@@ -382,6 +384,13 @@ window.onkeyup = (event:KeyboardEvent) => {
     }
 };
 
+function createCell(x:number, y:number):PIXI.Sprite {
+    let sprite = new PIXI.Sprite(squareTexture);
+    sprite.position.x = x * tileW;
+    sprite.position.y = y * tileH;
+    return sprite;
+}
+
 function setup():void {
     redTexture = PIXI.loader.resources['images/red.bmp'].texture;
     greenTexture = PIXI.loader.resources['images/green.bmp'].texture;
@@ -394,10 +403,7 @@ function setup():void {
     for(let x:number = 0; x < screenW; x++) {
         squares[x] = [];
         for(let y:number = 0; y < screenH; y++) {
-            squares[x][y] = new PIXI.Sprite(squareTexture);
-            squares[x][y].position.x = x * tileW;
-            squares[x][y].position.y = y * tileH;
-            squaresContainer.addChild(squares[x][y]);  
+            squaresContainer.addChild(squares[x][y] = createCell(x, y));  
         }
     }
     application.stage.addChild(squaresContainer);
