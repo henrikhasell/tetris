@@ -124,10 +124,10 @@ namespace Tetris {
         public initialise():void {
             this.shape = this.getRandomShape();
             if(this.container) {
-                application.stage.removeChild(this.container);
+                gameContainer.removeChild(this.container);
             }
             this.container = this.createContainer(this.shape);
-            application.stage.addChild(this.container);            
+            gameContainer.addChild(this.container);            
         }
 
         public step(grid:PIXI.Sprite[][]):void {
@@ -264,7 +264,11 @@ const tileH:number = 32;
 const screenW:number = 10;
 const screenH:number = 22;
 
-let application:PIXI.Application = new PIXI.Application({width: tileW * screenW, height: tileH * screenH});
+let application:PIXI.Application;/* = new PIXI.Application({
+    width: 608,
+    height: 768
+});*/
+let gameContainer:PIXI.Container = new PIXI.Container();
 let squaresContainer:PIXI.Container = new PIXI.Container();
 let blinkContainer:PIXI.Container = new PIXI.Container();
 let redTexture:PIXI.Texture;
@@ -275,6 +279,7 @@ let yellowTeture:PIXI.Texture;
 let magentaTexture:PIXI.Texture;
 let cyanTexture:PIXI.Texture;
 let squareTexture:PIXI.Texture;
+let backgroundTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
 let shape:Tetris.Debris;
 let state:Tetris.State = Tetris.State.Move;
@@ -291,7 +296,8 @@ PIXI.loader
         "images/orange.bmp",
         "images/cyan.bmp",
         "images/magenta.bmp",
-        "images/yellow.bmp"
+        "images/yellow.bmp",
+        "images/background.png"
     ])
     .load(setup);
 
@@ -307,7 +313,7 @@ function timeStep():void {
             break;
         case Tetris.State.Blink:
             blinkContainer.visible = !blinkContainer.visible;
-            if(blinkContainer.visible && ++stepCount == 5) {
+            if(blinkContainer.visible && stepCount++ > 8) {
                 blinkContainer.removeChildren();
                 shift(squares, completedRows);
                 state = Tetris.State.Move;
@@ -400,16 +406,25 @@ function setup():void {
     yellowTeture = PIXI.loader.resources['images/yellow.bmp'].texture;
     cyanTexture = PIXI.loader.resources['images/cyan.bmp'].texture;
     magentaTexture = PIXI.loader.resources['images/magenta.bmp'].texture;
+    backgroundTexture = PIXI.loader.resources['images/background.png'].texture;
     for(let x:number = 0; x < screenW; x++) {
         squares[x] = [];
         for(let y:number = 0; y < screenH; y++) {
             squaresContainer.addChild(squares[x][y] = createCell(x, y));  
         }
     }
-    application.stage.addChild(squaresContainer);
-    application.stage.addChild(blinkContainer);
+    gameContainer.position.x = tileW;
+    gameContainer.position.y = tileH;
+    gameContainer.addChild(squaresContainer);
+    gameContainer.addChild(blinkContainer);
+    application = new PIXI.Application({
+        backgroundColor:0xffffff,
+        width:backgroundTexture.width,
+        height:backgroundTexture.height
+    });
+    application.stage.addChild(gameContainer);
+    application.stage.addChild(new PIXI.Sprite(backgroundTexture));
     shape = new Tetris.Debris();
+    document.body.appendChild(application.view);
     window.setInterval(timeStep, 25);
 }
-
-document.body.appendChild(application.view);
