@@ -6,10 +6,22 @@ namespace Tetris {
     export const enum Colour {
         Red, Green, Blue, Yellow, Magenta, Cyan, Orange
     }
+    export interface Controls {
+        moveLeft:number;
+        moveRight:number;
+        moveDown:number;
+        rotate:number;
+    }
     export interface Shape {
         points:PIXI.Point[];
         colour:Colour;
         offset?:PIXI.Point;
+    }
+    export interface SwipeDetection {
+        sX:number;
+        sY:number;
+        eX:number;
+        eY:number;
     }
     export class Debris {
         protected static SHAPES:Shape[] = [
@@ -98,7 +110,7 @@ namespace Tetris {
 
         protected createContainer(shape:Tetris.Shape):PIXI.Container {
             let container:PIXI.Container = new PIXI.Container();
-            container.position.x = tileW * (Math.ceil(screenW / 2 - shape.offset.x) + shape.offset.x % 1);
+            container.position.x = tileW * (Math.ceil(gridW / 2 - shape.offset.x) + shape.offset.x % 1);
             container.position.y = -tileH * (4 + shape.offset.y % 1);
             for(let point of shape.points) {
                 let texture:PIXI.Texture;
@@ -203,7 +215,7 @@ namespace Tetris {
             for(let child of <PIXI.Sprite[]>this.container.children) {
                 const position:PIXI.Point = this.transform(<PIXI.Point>child.position);
                 // Is the segment out of legal bounds? This constitutes a collision.
-                if(position.x < 0 || position.x >= screenW || position.y >= screenH) {
+                if(position.x < 0 || position.x >= gridW || position.y >= gridH) {
                     return true;
                 }
                 // Is the segment position legal, but outside the grid of existing shapes?
@@ -222,7 +234,7 @@ namespace Tetris {
             for(let child of <PIXI.Sprite[]>this.container.children) {
                 const position:PIXI.Point = this.transform(<PIXI.Point>child.position);
                 if(grid[position.x] && grid[position.x][position.y]) {
-                    grid[position.x][position.y].texture = (<PIXI.Sprite>child).texture;
+                    grid[position.x][position.y].texture = child.texture;
                 }
             }
         }
@@ -261,16 +273,17 @@ namespace Tetris {
 const tileW:number = 32;
 const tileH:number = 32;
 
-const screenW:number = 10;
-const screenH:number = 22;
+const gridW:number = 10;
+const gridH:number = 22;
 
-let application:PIXI.Application;/* = new PIXI.Application({
-    width: 608,
-    height: 768
-});*/
+const screenW:number = 384;
+const screenH:number = 768;
+
+let application:PIXI.Application;
 let gameContainer:PIXI.Container = new PIXI.Container();
 let squaresContainer:PIXI.Container = new PIXI.Container();
 let blinkContainer:PIXI.Container = new PIXI.Container();
+let buttonContainer:PIXI.Container = new PIXI.Container();
 let redTexture:PIXI.Texture;
 let greenTexture:PIXI.Texture;
 let blueTexture:PIXI.Texture;
@@ -280,9 +293,11 @@ let magentaTexture:PIXI.Texture;
 let cyanTexture:PIXI.Texture;
 let squareTexture:PIXI.Texture;
 let backgroundTexture:PIXI.Texture;
+let buttonTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
 let shape:Tetris.Debris;
 let state:Tetris.State = Tetris.State.Move;
+let controls:Tetris.Controls;
 let stepCount:number = 0;
 let fast:boolean = false;
 let completedRows:number[];
@@ -297,23 +312,23 @@ PIXI.loader
         "images/cyan.bmp",
         "images/magenta.bmp",
         "images/yellow.bmp",
-        "images/background.png"
+        "images/background.png",
+        "images/button.png"
     ])
     .load(setup);
 
 function timeStep():void {
+    stepCount++;
     switch(state) {
         case Tetris.State.Move:
-            if(fast || stepCount++ % 16 == 0) {
+            if(fast || stepCount % 16 == 0) {
                 shape.step(squares);
-                if(fast) {
-                    stepCount = 1;
-                }
+                stepCount = 0;
             }
             break;
         case Tetris.State.Blink:
             blinkContainer.visible = !blinkContainer.visible;
-            if(blinkContainer.visible && stepCount++ > 8) {
+            if(stepCount > 8) {
                 blinkContainer.removeChildren();
                 shift(squares, completedRows);
                 state = Tetris.State.Move;
@@ -325,7 +340,7 @@ function shift(grid:PIXI.Sprite[][], rows:number[]):void {
     rows = rows.sort();
     for(let row of rows) {
         for(let y:number = row; y > 0; y--) {
-            for(let x:number = 0; x < screenW; x++) {
+            for(let x:number = 0; x < gridW; x++) {
                 grid[x][y] = grid[x][y - 1];
                 grid[x][y].position.y += tileH;
                 squaresContainer.addChild(grid[x][0] = createCell(x, 0));
@@ -338,7 +353,7 @@ function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
     completedRows = [];
     for(let row of rows) {
         let complete:boolean = true;
-        for(let x:number = 0; x < screenW; x++) {
+        for(let x:number = 0; x < gridW; x++) {
             if(grid[x][row].texture == squareTexture) {
                 complete = false;
                 break;
@@ -348,13 +363,13 @@ function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
             completedRows.push(row);
         }
     }
-    completedRows = completedRows.sort((a:number, b:number) => {
-        return a > b ? a : b;
-    });
 
     if(completedRows.length) {
+        completedRows = completedRows.sort((a:number, b:number) => {
+            return a > b ? a : b;
+        });
         for(let row of completedRows) {
-            for(let x:number = 0; x < screenW; x++) {
+            for(let x:number = 0; x < gridW; x++) {
                 const sprite:PIXI.Sprite = grid[x][row];
                 squaresContainer.removeChild(sprite);
                 blinkContainer.addChild(sprite);
@@ -390,12 +405,58 @@ window.onkeyup = (event:KeyboardEvent) => {
     }
 };
 
+function detectswipe(ele:HTMLElement,func:(dir:string) => void) {
+    let swipeState:Tetris.SwipeDetection = { sX:0, sY:0, eX:0, eY:0 };
+
+    const min_x:number = 30;
+    const max_x:number = 30;
+    const min_y:number = 50;
+    const max_y:number = 60;
+
+    let direc:string = "";
+    ele.addEventListener('touchstart', event => {
+        let touch:Touch = event.touches[0];
+        swipeState.sX = touch.screenX; 
+        swipeState.sY = touch.screenY;
+    });
+    ele.addEventListener('touchmove', event => {
+        event.preventDefault();
+        let touch:Touch = event.touches[0];
+        swipeState.eX = touch.screenX; 
+        swipeState.eY = touch.screenY;    
+    });
+    ele.addEventListener('touchend', event => {
+      //horizontal detection
+      if ((((swipeState.eX - min_x > swipeState.sX) || (swipeState.eX + min_x < swipeState.sX)) && ((swipeState.eY < swipeState.sY + max_y) && (swipeState.sY > swipeState.eY - max_y) && (swipeState.eX > 0)))) {
+        if(swipeState.eX > swipeState.sX) direc = "r";
+        else direc = "l";
+      }
+      //vertical detection
+      else if ((((swipeState.eY - min_y > swipeState.sY) || (swipeState.eY + min_y < swipeState.sY)) && ((swipeState.eX < swipeState.sX + max_x) && (swipeState.sX > swipeState.eX - max_x) && (swipeState.eY > 0)))) {
+        if(swipeState.eY > swipeState.sY) direc = "d";
+        else direc = "u";
+      }
+  
+      if (direc != "") {
+        if(typeof func == 'function') func(direc);
+      }
+      direc = "";
+      swipeState.sX = 0; swipeState.sY = 0; swipeState.eX = 0; swipeState.eY = 0;
+    });  
+}
+  
+function myfunction(d) {
+    console.debug("you swiped to "+d+" direction");
+}
+
 function createCell(x:number, y:number):PIXI.Sprite {
     let sprite = new PIXI.Sprite(squareTexture);
     sprite.position.x = x * tileW;
     sprite.position.y = y * tileH;
     return sprite;
 }
+
+let dbg_btn:PIXI.Sprite[] = [];
 
 function setup():void {
     redTexture = PIXI.loader.resources['images/red.bmp'].texture;
@@ -407,24 +468,93 @@ function setup():void {
     cyanTexture = PIXI.loader.resources['images/cyan.bmp'].texture;
     magentaTexture = PIXI.loader.resources['images/magenta.bmp'].texture;
     backgroundTexture = PIXI.loader.resources['images/background.png'].texture;
-    for(let x:number = 0; x < screenW; x++) {
-        squares[x] = [];
-        for(let y:number = 0; y < screenH; y++) {
-            squaresContainer.addChild(squares[x][y] = createCell(x, y));  
-        }
-    }
+    buttonTexture = PIXI.loader.resources['images/button.png'].texture;
     gameContainer.position.x = tileW;
     gameContainer.position.y = tileH;
     gameContainer.addChild(squaresContainer);
     gameContainer.addChild(blinkContainer);
+    for(let x:number = 0; x < gridW; x++) {
+        squares[x] = [];
+        for(let y:number = 0; y < gridH; y++) {
+            squaresContainer.addChild(squares[x][y] = createCell(x, y));  
+        }
+    }
+    let buttonPositions:PIXI.Point[] = [
+        new PIXI.Point(0, 608),
+        new PIXI.Point(32*9, 608),
+        new PIXI.Point(32*2.5, 672),
+        new PIXI.Point(32*6.5, 672)
+    ];
+    for(let i in buttonPositions) {
+        let button:PIXI.Sprite = new PIXI.Sprite(buttonTexture);
+        switch(+i) {
+            case 0:
+                button.on('pointerdown', () => {
+                    shape.moveLeft(squares);
+                });
+                break;
+            case 1:
+                button.on('pointerdown', () => {
+                    shape.moveRight(squares);
+                });
+                break;
+            case 2:
+                button.on('pointerdown', () => {
+                    fast = true;
+                });
+                button.on('pointerup', () => {
+                    fast = false;
+                });
+                break;
+            case 3:
+                button.on('pointerdown', () => {
+                    shape.rotate(squares);
+                });
+                break;
+        }
+        button.interactive = true;
+        button.position.x = buttonPositions[i].x;
+        button.position.y = buttonPositions[i].y;
+        button.alpha = 0.2;
+        buttonContainer.addChild(button);
+        dbg_btn.push(button);
+    }
     application = new PIXI.Application({
-        backgroundColor:0xffffff,
-        width:backgroundTexture.width,
-        height:backgroundTexture.height
+        //backgroundColor:0xffffff,
+        width:(gridW + 2) * tileW,
+        height:(gridH + 2) * tileH
     });
     application.stage.addChild(gameContainer);
     application.stage.addChild(new PIXI.Sprite(backgroundTexture));
+    application.stage.addChild(buttonContainer);
     shape = new Tetris.Debris();
     document.body.appendChild(application.view);
     window.setInterval(timeStep, 25);
+    window.onresize = (event:UIEvent) =>
+    {
+        const w:number = application.view.clientWidth;
+        const h:number = application.view.clientHeight;
+        const ratio:number = w / h;
+        
+        if(ratio < screenW / screenH)
+        {
+            let scale:number = h * (screenW / w);
+            application.stage.x = 0;
+            application.stage.y = scale / 2 - screenH / 2;
+            application.renderer.resize(screenW, scale);
+        }
+        else
+        {
+            let scale:number = w * (screenH / h);
+            application.stage.x = scale / 2 - screenW / 2;
+            application.stage.y = 0;
+            application.renderer.resize(scale, screenH);
+        }
+    };
+    application.view.onpointerup = () =>
+    {
+        application.view.webkitRequestFullscreen();
+    };
+    detectswipe(application.view, myfunction);
+    window.onresize(null);
 }
