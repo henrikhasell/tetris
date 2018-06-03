@@ -1,27 +1,23 @@
 namespace Tetris {
     export const enum State {
+        TapToStart,
         Move,
-        Blink
+        Blink,
+        GameOver
     }
     export const enum Colour {
         Red, Green, Blue, Yellow, Magenta, Cyan, Orange
     }
     export interface Controls {
-        moveLeft:number;
-        moveRight:number;
-        moveDown:number;
-        rotate:number;
+        moveLeft?:number;
+        moveRight?:number;
+        moveDown?:boolean;
+        rotate?:number;
     }
     export interface Shape {
         points:PIXI.Point[];
         colour:Colour;
         offset?:PIXI.Point;
-    }
-    export interface SwipeDetection {
-        sX:number;
-        sY:number;
-        eX:number;
-        eY:number;
     }
     export class Debris {
         protected static SHAPES:Shape[] = [
@@ -236,6 +232,9 @@ namespace Tetris {
                 if(grid[position.x] && grid[position.x][position.y]) {
                     grid[position.x][position.y].texture = child.texture;
                 }
+                else {
+                    state = Tetris.State.GameOver;
+                }
             }
         }
 
@@ -274,7 +273,7 @@ const tileW:number = 32;
 const tileH:number = 32;
 
 const gridW:number = 10;
-const gridH:number = 22;
+const gridH:number = 19;
 
 const screenW:number = 384;
 const screenH:number = 768;
@@ -284,6 +283,7 @@ let gameContainer:PIXI.Container = new PIXI.Container();
 let squaresContainer:PIXI.Container = new PIXI.Container();
 let blinkContainer:PIXI.Container = new PIXI.Container();
 let buttonContainer:PIXI.Container = new PIXI.Container();
+let tapToStartText:PIXI.Text;
 let redTexture:PIXI.Texture;
 let greenTexture:PIXI.Texture;
 let blueTexture:PIXI.Texture;
@@ -296,10 +296,9 @@ let backgroundTexture:PIXI.Texture;
 let buttonTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
 let shape:Tetris.Debris;
-let state:Tetris.State = Tetris.State.Move;
-let controls:Tetris.Controls;
+let state:Tetris.State = Tetris.State.TapToStart;
+let controls:Tetris.Controls = {};
 let stepCount:number = 0;
-let fast:boolean = false;
 let completedRows:number[];
 
 PIXI.loader
@@ -321,7 +320,7 @@ function timeStep():void {
     stepCount++;
     switch(state) {
         case Tetris.State.Move:
-            if(fast || stepCount % 16 == 0) {
+            if(controls.moveDown || stepCount % 16 == 0) {
                 shape.step(squares);
                 stepCount = 0;
             }
@@ -333,6 +332,44 @@ function timeStep():void {
                 shift(squares, completedRows);
                 state = Tetris.State.Move;
             }
+            break;
+        case Tetris.State.GameOver:
+            if(stepCount % 8 == 1) {
+                let interval:number = Math.ceil(stepCount / 8);
+                if(interval <= gridH) {
+                    for(let x:number = 0; x < gridW; x++) {
+                        squares[x][gridH - interval].texture = redTexture;
+                    }
+                }
+                else if(interval <= gridH * 2) {
+                    for(let x:number = 0; x < gridW; x++) {
+                        squares[x][interval - gridH - 1].texture = squareTexture;
+                    }
+                }
+                else {
+                    state = Tetris.State.TapToStart;
+                    tapToStartText.visible = true;
+                    stepCount = 0;
+                }
+            }
+    }
+
+    const repeatDelay:number = 20;
+
+    if(controls.moveLeft) {
+        if(controls.moveLeft++ == 1 || controls.moveLeft > repeatDelay) {
+            shape.moveLeft(squares);
+        }
+    }
+    if(controls.moveRight) {
+        if(controls.moveRight++ == 1 || controls.moveRight > repeatDelay) {
+            shape.moveRight(squares);
+        }
+    }
+    if(controls.rotate) {
+        if(controls.rotate++ == 1 || controls.rotate > repeatDelay) {
+            shape.rotate(squares);
+        }
     }
 }
 
@@ -354,7 +391,7 @@ function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
     for(let row of rows) {
         let complete:boolean = true;
         for(let x:number = 0; x < gridW; x++) {
-            if(grid[x][row].texture == squareTexture) {
+            if(!grid[x][row] || grid[x][row].texture == squareTexture) {
                 complete = false;
                 break;
             }
@@ -389,7 +426,7 @@ window.onkeydown = (event:KeyboardEvent) => {
             shape.moveRight(squares);
             break;
         case 's':
-            fast = true;
+            controls.moveDown = true;
             break;
         case 'r':
             shape.rotate(squares);
@@ -400,54 +437,10 @@ window.onkeydown = (event:KeyboardEvent) => {
 window.onkeyup = (event:KeyboardEvent) => {
     switch(event.key) {
         case 's':
-            fast = false;
+            controls.moveDown = false;
             break;
     }
 };
-
-function detectswipe(ele:HTMLElement,func:(dir:string) => void) {
-    let swipeState:Tetris.SwipeDetection = { sX:0, sY:0, eX:0, eY:0 };
-
-    const min_x:number = 30;
-    const max_x:number = 30;
-    const min_y:number = 50;
-    const max_y:number = 60;
-
-    let direc:string = "";
-    ele.addEventListener('touchstart', event => {
-        let touch:Touch = event.touches[0];
-        swipeState.sX = touch.screenX; 
-        swipeState.sY = touch.screenY;
-    });
-    ele.addEventListener('touchmove', event => {
-        event.preventDefault();
-        let touch:Touch = event.touches[0];
-        swipeState.eX = touch.screenX; 
-        swipeState.eY = touch.screenY;    
-    });
-    ele.addEventListener('touchend', event => {
-      //horizontal detection
-      if ((((swipeState.eX - min_x > swipeState.sX) || (swipeState.eX + min_x < swipeState.sX)) && ((swipeState.eY < swipeState.sY + max_y) && (swipeState.sY > swipeState.eY - max_y) && (swipeState.eX > 0)))) {
-        if(swipeState.eX > swipeState.sX) direc = "r";
-        else direc = "l";
-      }
-      //vertical detection
-      else if ((((swipeState.eY - min_y > swipeState.sY) || (swipeState.eY + min_y < swipeState.sY)) && ((swipeState.eX < swipeState.sX + max_x) && (swipeState.sX > swipeState.eX - max_x) && (swipeState.eY > 0)))) {
-        if(swipeState.eY > swipeState.sY) direc = "d";
-        else direc = "u";
-      }
-  
-      if (direc != "") {
-        if(typeof func == 'function') func(direc);
-      }
-      direc = "";
-      swipeState.sX = 0; swipeState.sY = 0; swipeState.eX = 0; swipeState.eY = 0;
-    });  
-}
-  
-function myfunction(d) {
-    console.debug("you swiped to "+d+" direction");
-}
 
 function createCell(x:number, y:number):PIXI.Sprite {
     let sprite = new PIXI.Sprite(squareTexture);
@@ -480,36 +473,33 @@ function setup():void {
         }
     }
     let buttonPositions:PIXI.Point[] = [
-        new PIXI.Point(0, 608),
-        new PIXI.Point(32*9, 608),
-        new PIXI.Point(32*2.5, 672),
-        new PIXI.Point(32*6.5, 672)
+        new PIXI.Point(tileW*0, tileH*21),
+        new PIXI.Point(tileW*9, tileH*21),
+        new PIXI.Point(tileW*3, tileH*21),
+        new PIXI.Point(tileW*6, tileH*21)
     ];
     for(let i in buttonPositions) {
         let button:PIXI.Sprite = new PIXI.Sprite(buttonTexture);
         switch(+i) {
             case 0:
-                button.on('pointerdown', () => {
-                    shape.moveLeft(squares);
-                });
+                button.on('pointerdown', () => controls.moveLeft = 1);
+                button.on('pointerup', () => controls.moveLeft = 0);
+                button.on('pointerupoutside', () => controls.moveLeft = 0);
                 break;
             case 1:
-                button.on('pointerdown', () => {
-                    shape.moveRight(squares);
-                });
+                button.on('pointerdown', () => controls.moveRight = 1);
+                button.on('pointerup', () => controls.moveRight = 0);
+                button.on('pointerupoutside', () => controls.moveRight = 0);
                 break;
             case 2:
-                button.on('pointerdown', () => {
-                    fast = true;
-                });
-                button.on('pointerup', () => {
-                    fast = false;
-                });
+                button.on('pointerdown', () => controls.moveDown = true);
+                button.on('pointerup', () => controls.moveDown = false);
+                button.on('pointerupoutside', () => controls.moveDown = false);
                 break;
             case 3:
-                button.on('pointerdown', () => {
-                    shape.rotate(squares);
-                });
+                button.on('pointerdown', () => controls.rotate = 1);
+                button.on('pointerup', () => controls.rotate = 0);
+                button.on('pointerupoutside', () => controls.rotate = 0);
                 break;
         }
         button.interactive = true;
@@ -519,14 +509,27 @@ function setup():void {
         buttonContainer.addChild(button);
         dbg_btn.push(button);
     }
+    let tapToStartStyle:PIXI.TextStyle = new PIXI.TextStyle({
+        fontFamily: 'Arial',
+        fontSize: 36,
+        fontWeight: 'bold',
+        align:'center'
+    });
+    tapToStartText = new PIXI.Text('Touch the Screen\nTo Start', tapToStartStyle);
+    tapToStartText.anchor.x = 0.5;
+    tapToStartText.anchor.y = 0.5;
+    tapToStartText.x = tileW * 6;
+    tapToStartText.y = tileH * 8;
+
     application = new PIXI.Application({
-        //backgroundColor:0xffffff,
-        width:(gridW + 2) * tileW,
-        height:(gridH + 2) * tileH
+        backgroundColor:0xffffff,
+        width:screenW,
+        height:screenH
     });
     application.stage.addChild(gameContainer);
     application.stage.addChild(new PIXI.Sprite(backgroundTexture));
     application.stage.addChild(buttonContainer);
+    application.stage.addChild(tapToStartText);
     shape = new Tetris.Debris();
     document.body.appendChild(application.view);
     window.setInterval(timeStep, 25);
@@ -554,7 +557,10 @@ function setup():void {
     application.view.onpointerup = () =>
     {
         application.view.webkitRequestFullscreen();
+        if(state == Tetris.State.TapToStart) {
+            tapToStartText.visible = false;
+            state = Tetris.State.Move;
+        }
     };
-    detectswipe(application.view, myfunction);
     window.onresize(null);
 }
