@@ -43,10 +43,10 @@ namespace Tetris {
             },
             {
                 points: [
+                    new PIXI.Point(0, 1),
                     new PIXI.Point(0, 0),
                     new PIXI.Point(1, 0),
-                    new PIXI.Point(2, 0),
-                    new PIXI.Point(0, 1)
+                    new PIXI.Point(2, 0)
                 ],
                 offset: new PIXI.Point(1.5, 1.5),
                 colour: Colour.Orange
@@ -97,17 +97,18 @@ namespace Tetris {
         protected container:PIXI.Container;
         
         public constructor() {
-            this.initialise();
+            this.container = new PIXI.Container();
+            this.resetContainer();
+            gameContainer.addChild(this.container);  
         }
 
         protected getRandomShape():Tetris.Shape {
             return Debris.SHAPES[Math.floor(Math.random() * Debris.SHAPES.length)];
         }
 
-        protected createContainer(shape:Tetris.Shape):PIXI.Container {
-            let container:PIXI.Container = new PIXI.Container();
-            container.position.x = tileW * (Math.ceil(gridW / 2 - shape.offset.x) + shape.offset.x % 1);
-            container.position.y = -tileH * (4 + shape.offset.y % 1);
+        protected initialiseContainer(shape:Tetris.Shape):void {
+            this.container.rotation = 0;
+            this.container.removeChildren();
             for(let point of shape.points) {
                 let texture:PIXI.Texture;
                 switch(shape.colour) {
@@ -124,18 +125,29 @@ namespace Tetris {
                 sprite.position.y = (point.y - shape.offset.y + 0.5) * tileH;
                 sprite.anchor.x = 0.5;
                 sprite.anchor.y = 0.5;
-                container.addChild(sprite);
+                this.container.addChild(sprite);
             }
-            return container;
         }
 
-        public initialise():void {
-            this.shape = this.getRandomShape();
-            if(this.container) {
-                gameContainer.removeChild(this.container);
+        public resetContainer():void {
+            if(next && this != next) {
+                this.shape = next.shape;
+                next.resetContainer();
             }
-            this.container = this.createContainer(this.shape);
-            gameContainer.addChild(this.container);            
+            else {
+                this.shape = this.getRandomShape();
+            }
+            this.initialiseContainer(this.shape);
+        }
+
+        public resetPosition():void {
+            this.container.position.x = tileW * (Math.ceil(gridW / 2 - this.shape.offset.x) + this.shape.offset.x % 1);
+            this.container.position.y = -tileH * (4 + this.shape.offset.y % 1);
+        }
+
+        public respawn():void {
+            this.resetContainer();
+            this.resetPosition(); 
         }
 
         public step(grid:PIXI.Sprite[][]):void {
@@ -144,7 +156,7 @@ namespace Tetris {
                 this.container.position.y -= tileH;
                 this.solidify(grid);
                 let rows:number[] = this.getRows();
-                this.initialise();
+                this.respawn();
                 checkRows(grid, rows);
             }
         }
@@ -186,24 +198,13 @@ namespace Tetris {
 
         protected transform(position:PIXI.Point):PIXI.Point {
 
-
             const cos_val:number = Math.cos(this.container.rotation);
             const sin_val:number = Math.sin(this.container.rotation);
 
-            // There is probablly a more efficient algorithm for this operation?
-
-            const p:PIXI.Point = new PIXI.Point(
-                position.x,// - this.shape.offset.x * tileW,
-                position.y// - this.shape.offset.x * tileH
-            );
-
             const vertex:PIXI.Point = new PIXI.Point(
-                Math.floor(Math.floor(this.container.position.x + (cos_val * p.x - sin_val * p.y)) / tileW),
-                Math.floor(Math.floor(this.container.position.y + (sin_val * p.x + cos_val * p.y)) / tileH)
+                Math.floor((this.container.position.x + cos_val * position.x - sin_val * position.y) / tileW),
+                Math.floor((this.container.position.y + sin_val * position.x + cos_val * position.y) / tileH)
             );
-            
-            //vertex.x += this.shape.offset.x;
-            //vertex.y += this.shape.offset.y;
 
             return vertex;
         }
@@ -267,6 +268,46 @@ namespace Tetris {
             ));
         }
     }
+
+    export class NextDebris extends Debris {
+        public constructor() {
+            super();
+        }
+        protected initialiseContainer(shape:Tetris.Shape):void {
+            this.container.rotation = 0;
+            this.container.removeChildren();
+            let maxX:number = 0;
+            let maxY:number = 0;
+            for(let point of shape.points) {
+                if(point.x > maxX) {
+                    maxX = point.x;
+                }
+                if(point.y > maxY){
+                    maxY = point.y;
+                }
+                let texture:PIXI.Texture;
+                switch(shape.colour) {
+                    case Tetris.Colour.Red: texture = redTexture; break;
+                    case Tetris.Colour.Green: texture = greenTexture; break;
+                    case Tetris.Colour.Blue: texture = blueTexture; break;
+                    case Tetris.Colour.Orange: texture = orangeTexture; break;
+                    case Tetris.Colour.Yellow: texture = yellowTeture; break;
+                    case Tetris.Colour.Magenta: texture = magentaTexture; break;
+                    case Tetris.Colour.Cyan: texture = cyanTexture; break;
+                }
+                let sprite:PIXI.Sprite = new PIXI.Sprite(texture);
+                sprite.position.x = point.x  * tileW;
+                sprite.position.y = point.y  * tileH;
+                this.container.addChild(sprite);
+            }
+            let w:number = (maxX + 1) * tileW;
+            let h:number = (maxY + 1) * tileH;
+            this.container.scale.x = 0.75;
+            this.container.scale.y = 0.75;
+            this.container.position.x = (tileW * 9.4) - (w / 2) * this.container.scale.x;
+            this.container.position.y = (tileH * -1)   - (h / 2) * this.container.scale.y;
+        }
+    }
 }
 
 const tileW:number = 32;
@@ -284,6 +325,8 @@ let squaresContainer:PIXI.Container = new PIXI.Container();
 let blinkContainer:PIXI.Container = new PIXI.Container();
 let buttonContainer:PIXI.Container = new PIXI.Container();
 let tapToStartText:PIXI.Text;
+let scoreText:PIXI.Text;
+let nextText:PIXI.Text;
 let redTexture:PIXI.Texture;
 let greenTexture:PIXI.Texture;
 let blueTexture:PIXI.Texture;
@@ -296,6 +339,7 @@ let backgroundTexture:PIXI.Texture;
 let buttonTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
 let shape:Tetris.Debris;
+let next:Tetris.Debris;
 let state:Tetris.State = Tetris.State.TapToStart;
 let controls:Tetris.Controls = {};
 let stepCount:number = 0;
@@ -463,7 +507,7 @@ function setup():void {
     backgroundTexture = PIXI.loader.resources['images/background.png'].texture;
     buttonTexture = PIXI.loader.resources['images/button.png'].texture;
     gameContainer.position.x = tileW;
-    gameContainer.position.y = tileH;
+    gameContainer.position.y = tileH * 2;
     gameContainer.addChild(squaresContainer);
     gameContainer.addChild(blinkContainer);
     for(let x:number = 0; x < gridW; x++) {
@@ -515,11 +559,22 @@ function setup():void {
         fontWeight: 'bold',
         align:'center'
     });
+    let navbarStyle:PIXI.TextStyle = new PIXI.TextStyle({
+        fontFamily: 'Arial',
+        fontWeight: 'bold'
+    });
     tapToStartText = new PIXI.Text('Touch the Screen\nTo Start', tapToStartStyle);
     tapToStartText.anchor.x = 0.5;
     tapToStartText.anchor.y = 0.5;
     tapToStartText.x = tileW * 6;
     tapToStartText.y = tileH * 8;
+
+    scoreText = new PIXI.Text('Score: 0', navbarStyle);
+    scoreText.position.x = 20;
+    scoreText.position.y = 16;
+    nextText = new PIXI.Text('Next:', navbarStyle);
+    nextText.position.x = 220;
+    nextText.position.y = 16;
 
     application = new PIXI.Application({
         backgroundColor:0xffffff,
@@ -530,10 +585,14 @@ function setup():void {
     application.stage.addChild(new PIXI.Sprite(backgroundTexture));
     application.stage.addChild(buttonContainer);
     application.stage.addChild(tapToStartText);
+    application.stage.addChild(scoreText);
+    application.stage.addChild(nextText);
     shape = new Tetris.Debris();
+    next = new Tetris.NextDebris();
+    shape.resetPosition();
     document.body.appendChild(application.view);
     window.setInterval(timeStep, 25);
-    window.onresize = (event:UIEvent) =>
+    window.onresize = () =>
     {
         const w:number = application.view.clientWidth;
         const h:number = application.view.clientHeight;
@@ -556,8 +615,8 @@ function setup():void {
     };
     application.view.onpointerup = () =>
     {
-        application.view.webkitRequestFullscreen();
         if(state == Tetris.State.TapToStart) {
+            application.view.webkitRequestFullscreen();
             tapToStartText.visible = false;
             state = Tetris.State.Move;
         }
