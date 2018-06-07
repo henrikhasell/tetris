@@ -96,10 +96,10 @@ namespace Tetris {
         protected shape:Tetris.Shape;
         protected container:PIXI.Container;
         
-        public constructor() {
+        public constructor(container:PIXI.Container) {
             this.container = new PIXI.Container();
             this.resetContainer();
-            gameContainer.addChild(this.container);  
+            container.addChild(this.container);  
         }
 
         protected getRandomShape():Tetris.Shape {
@@ -270,9 +270,6 @@ namespace Tetris {
     }
 
     export class NextDebris extends Debris {
-        public constructor() {
-            super();
-        }
         protected initialiseContainer(shape:Tetris.Shape):void {
             this.container.rotation = 0;
             this.container.removeChildren();
@@ -304,8 +301,8 @@ namespace Tetris {
             let h:number = (maxY + 1) * tileH;
             this.container.scale.x = 0.75;
             this.container.scale.y = 0.75;
-            this.container.position.x = (tileW * 9.4) - (w / 2) * this.container.scale.x;
-            this.container.position.y = (tileH * -1)   - (h / 2) * this.container.scale.y;
+            this.container.position.x = (tileW * 10.3) - (w / 2) * this.container.scale.x;
+            this.container.position.y = tileH - (h / 2) * this.container.scale.y;
         }
     }
 }
@@ -342,8 +339,9 @@ let shape:Tetris.Debris;
 let next:Tetris.Debris;
 let state:Tetris.State = Tetris.State.TapToStart;
 let controls:Tetris.Controls = {};
-let stepCount:number = 0;
 let completedRows:number[];
+let stepCount:number = 0;
+let score:number;
 
 PIXI.loader
     .add([
@@ -359,6 +357,11 @@ PIXI.loader
         "images/button.png"
     ])
     .load(setup);
+
+function setScore(value:number) {
+    score = value;
+    scoreText.text = 'Score: ' + score;
+}
 
 function timeStep():void {
     stepCount++;
@@ -446,6 +449,7 @@ function checkRows(grid:PIXI.Sprite[][], rows:number[]):void {
     }
 
     if(completedRows.length) {
+        setScore(score + completedRows.length);
         completedRows = completedRows.sort((a:number, b:number) => {
             return a > b ? a : b;
         });
@@ -506,10 +510,21 @@ function setup():void {
     magentaTexture = PIXI.loader.resources['images/magenta.bmp'].texture;
     backgroundTexture = PIXI.loader.resources['images/background.png'].texture;
     buttonTexture = PIXI.loader.resources['images/button.png'].texture;
+
+    //gameContainer.mask = backgroundSprite;
+    let mask:PIXI.Graphics = new PIXI.Graphics();
+
+    mask.beginFill(0xffffff, 1.0);
+    mask.drawRect(0, 0, (gridW + 2) * tileW, gridH * tileH);
+    mask.endFill();
+
+    gameContainer.mask = mask;
     gameContainer.position.x = tileW;
     gameContainer.position.y = tileH * 2;
+    gameContainer.addChild(mask);
     gameContainer.addChild(squaresContainer);
     gameContainer.addChild(blinkContainer);
+
     for(let x:number = 0; x < gridW; x++) {
         squares[x] = [];
         for(let y:number = 0; y < gridH; y++) {
@@ -553,43 +568,53 @@ function setup():void {
         buttonContainer.addChild(button);
         dbg_btn.push(button);
     }
+
     let tapToStartStyle:PIXI.TextStyle = new PIXI.TextStyle({
         fontFamily: 'Arial',
         fontSize: 36,
         fontWeight: 'bold',
         align:'center'
     });
+
     let navbarStyle:PIXI.TextStyle = new PIXI.TextStyle({
         fontFamily: 'Arial',
         fontWeight: 'bold'
     });
+
     tapToStartText = new PIXI.Text('Touch the Screen\nTo Start', tapToStartStyle);
     tapToStartText.anchor.x = 0.5;
     tapToStartText.anchor.y = 0.5;
     tapToStartText.x = tileW * 6;
     tapToStartText.y = tileH * 8;
 
-    scoreText = new PIXI.Text('Score: 0', navbarStyle);
+    scoreText = new PIXI.Text(null, navbarStyle);
     scoreText.position.x = 20;
     scoreText.position.y = 16;
+
+    setScore(0);
+
     nextText = new PIXI.Text('Next:', navbarStyle);
-    nextText.position.x = 220;
+    nextText.position.x = 210;
     nextText.position.y = 16;
 
     application = new PIXI.Application({
-        backgroundColor:0xffffff,
-        width:screenW,
-        height:screenH
+        backgroundColor: 0xffffff,
+        width: screenW,
+        height: screenH
     });
+
     application.stage.addChild(gameContainer);
     application.stage.addChild(new PIXI.Sprite(backgroundTexture));
     application.stage.addChild(buttonContainer);
     application.stage.addChild(tapToStartText);
     application.stage.addChild(scoreText);
     application.stage.addChild(nextText);
-    shape = new Tetris.Debris();
-    next = new Tetris.NextDebris();
+
+    shape = new Tetris.Debris(gameContainer);
+    next = new Tetris.NextDebris(application.stage);
+
     shape.resetPosition();
+
     document.body.appendChild(application.view);
     window.setInterval(timeStep, 25);
     window.onresize = () =>
