@@ -334,6 +334,9 @@ let cyanTexture:PIXI.Texture;
 let squareTexture:PIXI.Texture;
 let backgroundTexture:PIXI.Texture;
 let buttonTexture:PIXI.Texture;
+let buttonLeftTexture:PIXI.Texture;
+let buttonRightTexture:PIXI.Texture;
+let buttonDownTexture:PIXI.Texture;
 let squares:PIXI.Sprite[][] = [];
 let shape:Tetris.Debris;
 let next:Tetris.Debris;
@@ -354,7 +357,10 @@ PIXI.loader
         "images/magenta.bmp",
         "images/yellow.bmp",
         "images/background.png",
-        "images/button.png"
+        "images/button.png",
+        "images/buttons/left.png",
+        "images/buttons/right.png",
+        "images/buttons/down.png"
     ])
     .load(setup);
 
@@ -423,12 +429,13 @@ function timeStep():void {
 function shift(grid:PIXI.Sprite[][], rows:number[]):void {
     rows = rows.sort();
     for(let row of rows) {
-        for(let y:number = row; y > 0; y--) {
-            for(let x:number = 0; x < gridW; x++) {
+        for(let x:number = 0; x < gridW; x++) {
+            squaresContainer.removeChild(grid[x][row]);
+            for(let y:number = row; y > 0; y--) {
                 grid[x][y] = grid[x][y - 1];
                 grid[x][y].position.y += tileH;
-                squaresContainer.addChild(grid[x][0] = createCell(x, 0));
             }
+            squaresContainer.addChild(grid[x][0] = createCell(x, 0));
         }
     }
 }
@@ -497,8 +504,6 @@ function createCell(x:number, y:number):PIXI.Sprite {
     return sprite;
 }
 
-let dbg_btn:PIXI.Sprite[] = [];
-
 function setup():void {
     redTexture = PIXI.loader.resources['images/red.bmp'].texture;
     greenTexture = PIXI.loader.resources['images/green.bmp'].texture;
@@ -510,6 +515,9 @@ function setup():void {
     magentaTexture = PIXI.loader.resources['images/magenta.bmp'].texture;
     backgroundTexture = PIXI.loader.resources['images/background.png'].texture;
     buttonTexture = PIXI.loader.resources['images/button.png'].texture;
+    buttonLeftTexture = PIXI.loader.resources['images/buttons/left.png'].texture;
+    buttonRightTexture = PIXI.loader.resources['images/buttons/right.png'].texture;
+    buttonDownTexture = PIXI.loader.resources['images/buttons/down.png'].texture;
 
     //gameContainer.mask = backgroundSprite;
     let mask:PIXI.Graphics = new PIXI.Graphics();
@@ -538,24 +546,28 @@ function setup():void {
         new PIXI.Point(tileW*6, tileH*21)
     ];
     for(let i in buttonPositions) {
-        let button:PIXI.Sprite = new PIXI.Sprite(buttonTexture);
+        let button:PIXI.Sprite;
         switch(+i) {
             case 0:
+                button = new PIXI.Sprite(buttonLeftTexture);
                 button.on('pointerdown', () => controls.moveLeft = 1);
                 button.on('pointerup', () => controls.moveLeft = 0);
                 button.on('pointerupoutside', () => controls.moveLeft = 0);
                 break;
             case 1:
+            button = new PIXI.Sprite(buttonRightTexture);
                 button.on('pointerdown', () => controls.moveRight = 1);
                 button.on('pointerup', () => controls.moveRight = 0);
                 button.on('pointerupoutside', () => controls.moveRight = 0);
                 break;
             case 2:
+            button = new PIXI.Sprite(buttonDownTexture);
                 button.on('pointerdown', () => controls.moveDown = true);
                 button.on('pointerup', () => controls.moveDown = false);
                 button.on('pointerupoutside', () => controls.moveDown = false);
                 break;
             case 3:
+                button = new PIXI.Sprite(buttonTexture);
                 button.on('pointerdown', () => controls.rotate = 1);
                 button.on('pointerup', () => controls.rotate = 0);
                 button.on('pointerupoutside', () => controls.rotate = 0);
@@ -564,9 +576,7 @@ function setup():void {
         button.interactive = true;
         button.position.x = buttonPositions[i].x;
         button.position.y = buttonPositions[i].y;
-        button.alpha = 0.2;
         buttonContainer.addChild(button);
-        dbg_btn.push(button);
     }
 
     let tapToStartStyle:PIXI.TextStyle = new PIXI.TextStyle({
