@@ -1,4 +1,8 @@
+/.vscode
 /wwwroot/**/*.js
 /wwwroot/**/*.js.map
+/wwwroot/**/*.min.css
 /node_modules
 /package-lock.json
+bin
+obj
